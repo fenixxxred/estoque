@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controle de Estoque — RedRoom (Branco & Vermelho)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root{--bg:#ffffff;--muted:#6b7080;--accent:#b30000;--accent-2:#ff4d4d;--card:#fff;--glass: rgba(255, 255, 255, 0.6);--success:#16a34a;}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; background:linear-gradient(180deg,#fff,#fff); color:#111}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:2px solid #ffecec;background:var(--bg);position:sticky;top:0;z-index:20}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:10px;overflow:hidden;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    .brand h1{font-size:18px;margin:0;color:var(--accent)}
+    .search{flex:1;max-width:640px;margin:0 20px}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #eee}
+    .actions{display:flex;gap:10px;align-items:center}
+    .btn{background:var(--accent);color:white;padding:9px 12px;border-radius:10px;border:0;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid var(--accent);color:var(--accent);font-size: 9px;}
+    main{display:flex;gap:20px;padding:18px;max-width:1200px;margin:18px auto}
+    .sidebar{width:320px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
+    .filters h3{margin:6px 0 8px;font-size:14px}
+    .categories button{display:block;width:100%;text-align:left;padding:8px;border-radius:8px;border:0;background:transparent;color:#111;cursor:pointer}
+    .catalog{flex:1}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+    .product{border-radius:12px;padding:12px;border:1px solid #f3f3f3;background:linear-gradient(180deg,#fff,#fff)}
+    .p-img{height:140px;display:flex;align-items:center;justify-content:center;background:#fafafa;border-radius:8px;margin-bottom:8px}
+    .p-img img{max-width:100%;max-height:100%;object-fit:contain}
+    .p-title{font-weight:700;margin-bottom:6px}
+    .p-desc{font-size:13px;color:var(--muted);height:36px;overflow:hidden}
+    .p-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+    .qty-badge{background:#f05f5f;border-radius:8px;padding:6px 8px;font-weight:700}
+    .summary{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:12px}
+    .summary .item{flex:1;text-align:center;padding:12px;border-radius:8px;background:linear-gradient(180deg,#fff,#fff);border:1px solid #faf0f0}
+    .footer{margin-top:20px;text-align:center;color:var(--muted);font-size:13px}
+    .small-muted{font-size:13px;color:var(--muted)}
+    .exp-list{max-height:160px;overflow:auto}
+    /* modal */
+    .modal{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal.open{display:flex}
+    .modal-card{background:white;border-radius:12px;padding:18px;max-width:820px;width:94%;max-height:90vh;overflow:auto}
+    /* responsive */
+    @media (max-width:980px){main{padding:12px;flex-direction:column}.sidebar{width:100%}.search{display:none}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">RE</div>
+      <h1>Controle de Estoque</h1>
+    </div>
+
+    <div class="search"><input id="search" placeholder="Buscar por nome, descrição ou categoria" /></div>
+
+    <div class="actions">
+      <button id="btnNew" class="btn"><i class="fas fa-plus"></i> Novo produto</button>
+      <button id="btnReportStock" class="btn ghost"><i class="fas fa-file-pdf"></i> PDF Estoque</button>
+      <button id="btnReportTx" class="btn ghost"><i class="fas fa-file-export"></i> PDF Movimentações</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div class="card filters">
+        <h3>Resumo Financeiro</h3>
+        <div class="summary">
+          <div class="item">
+            <div style="font-size:18px;font-weight:700" id="totalProducts">0</div>
+            <div style="color:var(--muted)">Produtos</div>
+          </div>
+          <div class="item">
+            <div style="font-size:18px;font-weight:700" id="totalQty">0</div>
+            <div style="color:var(--muted)">Qtd. em estoque</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between"><div class="small-muted">Valor em CUSTO</div><div id="totalCost">R$ 0,00</div></div>
+          <div style="display:flex;justify-content:space-between"><div class="small-muted">Valor em VENDA</div><div id="totalSale">R$ 0,00</div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px"><div class="small-muted">Lucro potencial</div><div id="potentialProfit">R$ 0,00</div></div>
+          <hr style="margin:10px 0">
+          <div style="display:flex;justify-content:space-between"><div class="small-muted">Lucro REAL (vendas)</div><div id="realizedProfit">R$ 0,00</div></div>
+          <div style="display:flex;justify-content:space-between"><div class="small-muted">Total despesas</div><div id="totalExpenses">R$ 0,00</div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-weight:700"><div>Lucro Líquido</div><div id="netProfit">R$ 0,00</div></div>
+        </div>
+
+        <hr style="margin:12px 0">
+        <h3>Filtros</h3>
+        <div class="categories" id="categoriesList"></div>
+        <hr style="margin:12px 0">
+        <h3>Ordenar</h3>
+        <select id="sort" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee">
+          <option value="default">Padrão</option>
+          <option value="price-asc">Preço venda: menor</option>
+          <option value="price-desc">Preço venda: maior</option>
+          <option value="cost-asc">Preço custo: menor</option>
+          <option value="cost-desc">Preço custo: maior</option>
+          <option value="qty-asc">Qtd: menor</option>
+          <option value="qty-desc">Qtd: maior</option>
+        </select>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <h3>Últimas movimentações</h3>
+        <div id="txList" style="max-height:160px;overflow:auto;margin-top:8px;color:var(--muted)"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="card">
+        <h3>Despesas</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="expDesc" placeholder="Descrição" style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee" />
+          <input id="expVal" placeholder="R$" type="number" step="0.01" style="width:120px;padding:8px;border-radius:8px;border:1px solid #eee" />
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="addExp" class="btn ghost">Adicionar</button>
+          <button id="exportExp" class="btn">PDF</button>
+        </div>
+        <div class="exp-list" id="expList" style="margin-top:10px;color:var(--muted)"></div>
+      </div>
+    </aside>
+
+    <section class="catalog">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h2 style="margin:0">Produtos</h2>
+          <small style="color:var(--muted)">Gerencie entradas, saídas, custos e preços</small>
+        </div>
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <div class="footer">Sistema de Controle de Estoque • Tema branco e vermelho</div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <script>
+    // -------------------------------
+    // seedProducts (inicial) com custo e preço de venda
+    // -------------------------------
+    const seedProducts = [
+    {id:1, title:"Gel Excitante Unissex Dragao 15ml", price:30.00, cost:0, desc:"Proporciona aquecimento e formigamento intenso, aumentando o prazer de ambos os parceiros.", img:"img/Gel_Excitante_Unissex_Dragao_C_965.webp", cat:"lubrificantes", qty:0},
+    {id:2, title:"Gel Excitante Pinta Clima 15ml", price:30.00, cost:0, desc:"Ideal para criar clima e deixar a relação ainda mais envolvente com sensações de excitação imediata.", img:"img/Gel_Excitante_Pinta_Clima_15g__75.webp", cat:"lubrificantes", qty:0},
+    {id:3, title:"Gel Anestesico Tesao Na Raba 15ml", price:30.00, cost:0, desc:"Desenvolvido para reduzir a sensibilidade e proporcionar conforto em momentos intensos.", img:"img/Gel_Anestesico_Tesao_Na_Raba_1_877.png", cat:"lubrificantes", qty:0},
+    {id:4, title:"Gel Retardante Pika Turbo 15ml", price:30.00, cost:0, desc:"Ajuda a prolongar o desempenho, retardando a ejaculação sem perder a sensibilidade.", img:"img/Gel_Retardante_Pika_Turbo_15g__146.png", cat:"lubrificantes", qty:0},
+    {id:5, title:"Vibrador Liquido Power Shock 15ml", price:30.00, cost:0, desc:"Fórmula eletrizante que provoca ondas de vibração na região aplicada.", img:"img/Vibrador_Liquido_Power_Shock_2_32.png", cat:"lubrificantes", qty:0},
+    {id:6, title:"Gel Anestesico InDolor 15ml", price:30.00, cost:0, desc:"Perfeito para quem busca mais conforto em penetrações, diminuindo desconfortos.", img:"img/Gel_Anestesico_InDolor_15g_Sex_506.png", cat:"lubrificantes", qty:0},
+    {id:7, title:"Gel Sensibilizante Volume Maxi", price:30.00, cost:0, desc:"Intensifica a circulação e aumenta a sensibilidade, proporcionando uma sensação de volume maior.", img:"img/Gel-Sensibilizante-Volume-Maxi-445.png", cat:"lubrificantes", qty:0},
+    {id:8, title:"Gel Funcional InTranse 15ml", price:30.00, cost:0, desc:"Estimula de forma progressiva, levando a momentos de puro êxtase.", img:"img/Gel_Funcional_InTranse_15g_Sex_83.png", cat:"lubrificantes", qty:0},
+    {id:9, title:"Gel Excitante Feminino Diaba 15ml", price:30.00, cost:0, desc:"Criado especialmente para mulheres, provoca aquecimento e excitação na região íntima.", img:"img/Gel_Excitante_Feminino_Diaba_H_258.png", cat:"lubrificantes", qty:0},
+    {id:10, title:"Gel Adstringente Lacradinha 15ml", price:30.00, cost:0, desc:"Proporciona sensação de estreitamento, aumentando a intensidade do prazer.", img:"img/Gel_Adstringente_Lacradinha_15_636.png", cat:"lubrificantes", qty:0},
+    {id:11, title:"Óleo Clito", price:30.00, cost:0, desc:"Estimulação direta e intensa do clitóris, potencializando o prazer feminino.", img:"img/Vibrador_Liquido_Eletrizante_C_281.webp", cat:"lubrificantes", qty:0},
+    {id:12, title:"Excitante Feminino Lanca Xanas 15ml", price:30.00, cost:0, desc:"Aumenta o desejo e a sensibilidade feminina, garantindo novas experiências.", img:"img/Excitante_Feminino_Lanca_Xanas_220.png", cat:"lubrificantes", qty:0},
+    {id:13, title:"Super Intenso Bomba Relogio 15ml", price:30.00, cost:0, desc:"Ativação imediata com efeito de aquecimento explosivo.", img:"img/Gel_Funcional_Super_Intenso_Bo_890.webp", cat:"lubrificantes", qty:0},
+    {id:14, title:"Hot Ice E Vibra Xana Loka 15g Hot Flowers", price:30.00, cost:0, desc:"Combinação de calor e frescor com vibração que surpreende.", img:"img/Gel_Funcional_Hot_Ice_E_Vibra__594.jpg", cat:"lubrificantes", qty:0},
+    {id:15, title:"Tesão de Egua", price:15.00, cost:0, desc:"Estimulante afrodisíaco que intensifica o desejo e aquece a relação.", img:"img/Energetico_Afrodisaco_Feminino_641.webp", cat:"afrodisiacos", qty:0},
+    {id:16, title:"Plug Aço", price:40.00, cost:0, desc:"Plug anal em aço inoxidável, elegante, higiênico e de fácil higienização.", img:"img/Plug_Anal_Em_Metal_Tamanho_PP__43.jpg", cat:"acessorios", qty:0},
+    {id:17, title:"Dado Cubo Do Amor 2 Unid", price:19.00, cost:0, desc:"Jogo erótico divertido que adiciona criatividade e ousadia às preliminares.", img:"img/Dado_Cubo_Do_Amor_2_Unid_Sexy__880.webp", cat:"acessorios", qty:0},
+    {id:18, title:"Egg Masturbador", price:40.00, cost:0, desc:"Masturbador discreto com texturas internas que proporcionam prazer intenso.", img:"img/egg-masturbador.webp", cat:"acessorios", qty:0},
+    {id:19, title:"Anel Peniano", price:30.00, cost:0, desc:"Prolonga a ereção, intensifica a penetração e aumenta o prazer do casal.", img:"img/Anel_Peniano_Com_Vibro_Borbole_737.jpg", cat:"acessorios", qty:0},
+    {id:20, title:"Bolinhas Explosivas", price:18.00, cost:0, desc:"Liberam aroma e líquido beijável que aumentam a excitação.", img:"img/Bolinha_Beijavel_Yummy_Sexy_Fa_672.webp", cat:"bolinhas", qty:0},
+    {id:21, title:"Bullet", price:40.00, cost:0, desc:"Mini vibrador discreto, silencioso e potente para estímulos externos.", img:"img/Vibrador_Bullet_Ovo_Vibratorio_630.jpg", cat:"vibradores", qty:0},
+    {id:22, title:"Bolinhas Explosivas", price:22.00, cost:0, desc:"Estouram durante o ato, trazendo frescor e intensidade ao momento.", img:"img/Bolinha_Hot_Ball__Xana_Loka_Co_190.jpg", cat:"bolinhas", qty:0},
+    {id:23, title:"D4 Gel", price:30.00, cost:0, desc:"Excitante unissex de ação rápida, com efeito refrescante e estimulante.", img:"img/Lubrificante-ntimo-D4-Frozen-6-177.png", cat:"lubrificantes", qty:0},
+    {id:24, title:"Yummy", price:20.00, cost:0, desc:"Gel térmico beijável, disponível em sabores deliciosos, perfeito para brincadeiras orais.", img:"img/Gel_Termico_Comestvel_Yummy_15_809.png", cat:"lubrificantes", qty:0},
+    {id:25, title:"Yummy Gourmet", price:30.00, cost:0, desc:"Versão gourmet do gel beijável, ainda mais sofisticada e irresistível.", img:"img/Gel_Termico_Comestvel_Yummy_Go_753.webp", cat:"lubrificantes", qty:0},
+    {id:26, title:"Prótese c/ Vibro Yaffa", price:89.00, cost:0, desc:"Prótese realística com vibração intensa e textura detalhada.", img:"img/Protese_Com_Vibro_Interno_195c_800.webp", cat:"vibradores", qty:0},
+    {id:27, title:"Dados Jogo Do Prazer Hot 2 Uni", price:22.00, cost:0, desc:"Dados eróticos para apimentar a relação de forma lúdica.", img:"img/Dados_Jogo_Do_Prazer_Hot_2_Uni_514.webp", cat:"acessorios", qty:0},
+    {id:28, title:"Vibrador Ponto G Premium", price:40.00, cost:0, desc:"Design anatômico que alcança o ponto G com máxima estimulação.", img:"img/Vibrador_Ponto_G_Golfinho_Liso_516.webp", cat:"vibradores", qty:0},
+    {id:29, title:"Anel Peniano Com Vibro Bichinh", price:40.00, cost:0, desc:"Anel vibratório divertido que estimula simultaneamente o pênis e o clitóris.", img:"img/Anel_Peniano_Com_Vibro_Bichinh_860.png", cat:"vibradores", qty:0},
+    {id:30, title:"Prolongador De Erecao Capitao Bengala 15ml", price:30.00, cost:0, desc:"Ajuda a manter a ereção por mais tempo com sensação de vigor extra.", img:"img/Prolongador-De-Erecao-Capitao--812.png", cat:"lubrificantes", qty:0},
+    {id:31, title:"Gel Estimulante Pinto Loko 15g Hot Flowers", price:30.00, cost:0, desc:"Gel divertido que aquece e provoca intensas sensações.", img:"img/Gel_Estimulante_Pinto_Loko_15g_344.webp", cat:"lubrificantes", qty:0},
+    {id:32, title:"Gel Lubrificante Sedenta Molhada 50g Pepper Blend", price:35.00, cost:0, desc:"Lubrificante de alta performance com efeito molhado prolongado.", img:"img/Gel_Lubrificante_Sedenta_Molha_277.jpg", cat:"lubrificantes", qty:0},
+    {id:33, title:"Lubrificante Beijável Fácil Lub 18g Chillies", price:18.00, cost:0, desc:"Lubrificante leve, com sabor delicioso, ideal para momentos descontraídos.", img:"img/Lubrificante_Beijavel_Facil_Lu_757.jpg", cat:"lubrificantes", qty:0},
+    {id:34, title:"Caneta Beijável", price:20.00, cost:0, desc:"Escreva na pele e saboreie com toques irresistíveis.", img:"img/Caneta_Comestvel_Sweet_Body_25_981.jpg", cat:"cosmeticos", qty:0},
+    {id:35, title:"Perfume De Calcinha 40ml Apinil", price:15.00, cost:0, desc:"Perfume íntimo que desperta desejo e curiosidade.", img:"img/Perfume-De-Calcinha-40ml-Apini-344.jpg", cat:"cosmeticos", qty:0},
+    {id:36, title:"Creme Gel Hidratante Para Virilha Sweet Girl 240ml Chillies", price:42.00, cost:0, desc:"Hidratação delicada para a região íntima, deixando a pele macia e perfumada.", img:"img/Creme_Gel_Hidratante_Para_Viri_413.webp", cat:"cosmeticos", qty:0},
+    {id:38, title:"Prótese Em Cyberskin Sem Vibro 27x6cm Sexy Fantasy", price:197.00, cost:0, desc:"Prótese realística com vibração intensa e textura detalhada.", img:"img/Protese_Em_Cyberskin_Sem_Vibro_449.webp", cat:"vibradores", qty:0},
+    {id:39, title:"Prótese Real Dick Com Escroto E Ventosa 18x4,7cm Sexy Fantasy", price:108.00, cost:0, desc:"Prótese realística com vibração intensa e textura detalhada.", img:"img/Protese_Real_Dick_Com_Escroto__909.webp", cat:"vibradores", qty:0},
+    {id:40, title:"Aromatizante E Anestésico Oral Garganta + Profunda 15ml", price:42.00, cost:0, desc:"Spray dessensibilizante que diminui a sensibilidade da garganta, tirando o desconforto na prática do sexo oral.", img:"img/Aromatizante_E_Anestesico_Oral_166.webp", cat:"lubrificantes", qty:0},
+    {id:41, title:"Plug Anal Com Led Em Silicone Com Vibrador E Controle Remoto", price:134.00, cost:0, desc:"Plug Anal em silicone com 10 modos de vibração e Led, ideal para dilatação anal e jogos de dominação.", img:"img/Plug_Anal_Com_Led_Em_Silicone__173.png", cat:"acessorios", qty:0},
+    {id:42, title:"Baralho Kama Sexy Gay", price:30.00, cost:0, desc:"Jogo erótico para apimentar momentos entre casais homoafetivos.", img:"img/Baralho-Kama-Sexy-Gay-Sexy-Fan-458.webp", cat:"jogos", qty:0},
+    {id:43, title:"Baralho Kama Sutra Completo", price:40.00, cost:0, desc:"Cartas com posições do Kama Sutra para diversificar a relação.", img:"img/Baralho_Kama_Sutra_Completo_Ad_532.webp", cat:"jogos", qty:0},
+    {id:44, title:"Gel Anestésico Anis Sex 15ml", price:33.00, cost:0, desc:"Traz conforto e ajuda a prolongar o prazer durante o ato sexual.", img:"img/Gel_Anestesico_Anis_Sex_15ml_S_546.webp", cat:"lubrificantes", qty:0},
+    {id:45, title:"Energético Afrodisíaco Masculino", price:15.00, cost:0, desc:"Bebida estimulante que aumenta a energia e a disposição sexual.", img:"img/Energetico_Afrodisaco_Masculin_567.webp", cat:"bebidas", qty:0},
+    {id:46, title:"Perfume de Calcinha Hot 40ml", price:18.00, cost:0, desc:"Perfume íntimo feminino com aroma sensual para sedução.", img:"img/Perfume_De_Calcinha_Hot_40ml_B_956.webp", cat:"perfumes", qty:0},
+    {id:47, title:"Lubrificante Íntimo K-Med 2 em 1", price:53.00, cost:0, desc:"Lubrificante íntimo que pode ser usado para massagem e penetração.", img:"img/Lubrificante_ntimo_Kmed_2_Em_1_429.webp", cat:"lubrificantes", qty:0},
+    {id:48, title:"Perfume Masculino Phero Aroma", price:32.00, cost:0, desc:"Fragrância masculina com feromônios que intensificam o poder de atração.", img:"img/Perfume_Masculino_Phero_Aroma__781.webp", cat:"perfumes", qty:0},
+    {id:49, title:"Jogo de Cartas Erótico Mau Mau", price:34.00, cost:0, desc:"Versão erótica do clássico jogo de cartas, ideal para casais ousados.", img:"img/Jogo_De_Cartas_Erotico_Mau_Mau_701.webp", cat:"jogos", qty:0},
+    {id:50, title:"Gel Anestésico Sete Sensações 25g", price:36.00, cost:0, desc:"Oferece múltiplas sensações para aumentar a excitação.", img:"img/Anestesico_Sete_Sensaces_25g_H_41.webp", cat:"lubrificantes", qty:0},
+    {id:51, title:"Calcinha Personalizável Love", price:45.00, cost:0, desc:"Peça íntima que pode ser personalizada, perfeita para presentear.", img:"img/Calcinha_Personalizavel_Love_T_177.webp", cat:"lingerie", qty:0},
+    {id:52, title:"Plug Anal Cônico com Rabo de Coelho", price:45.00, cost:0, desc:"Plug anal com cauda de coelho, divertido e sensual.", img:"img/Plug_Anal_Cnico_Com_Rabo_De_Co_630.webp", cat:"plugs", qty:0},
+    {id:53, title:"Plug Anal Dourado Pequeno com Cristal", price:58.00, cost:0, desc:"Plug anal em metal dourado com cristal decorativo.", img:"img/Plug_Anal_Dourado_Tamanho_P_Co_309.webp", cat:"plugs", qty:0},
+    {id:54, title:"Plug Anal em Silicone com Vibração", price:120.00, cost:0, desc:"Plug flexível em silicone com vibração para prazer extra.", img:"img/Plug_Anal_Em_Silicone_Com_Vibr_776.webp", cat:"plugs", qty:0},
+    {id:55, title:"Plug Anal Escalonado em Aço", price:50.00, cost:0, desc:"Plug escalonado para diferentes níveis de prazer.", img:"img/Plug_Anal_Escalonado_Em_Aco_Co_757.webp", cat:"plugs", qty:0},
+    {id:56, title:"Plug Anal Less M Dourado com Rabo", price:52.00, cost:0, desc:"Plug anal com cauda e design elegante.", img:"img/Plug_Anal_Less_M_Dourado_Com_R_240.png", cat:"plugs", qty:0},
+    {id:57, title:"Prótese com Escroto e Ventosa", price:129.00, cost:0, desc:"Prótese realística com escroto e ventosa para fixação.", img:"img/Protese_Com_Escroto_E_Ventosa__15.webp", cat:"proteses", qty:0},
+    {id:58, title:"Algema de Metal com Pelúcia", price:64.00, cost:0, desc:"Algema acolchoada para práticas de dominação leves e seguras.", img:"img/Algema_De_Metal_Com_Pelucia_Ha_63.webp", cat:"acessorios", qty:0},
+    {id:59, title:"Algema em Couro Sintético", price:43.00, cost:0, desc:"Resistente e confortável para jogos de submissão.", img:"img/Algema_Em_Couro_Sintetico_Bras_611.webp", cat:"acessorios", qty:0},
+    {id:60, title:"Algema para Mãos e Pés", price:82.00, cost:0, desc:"Ideal para prender e intensificar momentos de dominação.", img:"img/Algema_Para_Maos_E_Pes_Brasil__660.webp", cat:"acessorios", qty:0},
+    {id:61, title:"Anestésico Anal Rebelde 15ml", price:28.00, cost:0, desc:"Ajuda a reduzir a sensibilidade e proporciona maior conforto.", img:"img/Anestesico_Anal_Rebelde_Sem_Ca_116.webp", cat:"lubrificantes", qty:0},
+    {id:62, title:"Bolinha Excitante Goze Sexy", price:20.00, cost:0, desc:"Explode liberando aroma e óleo afrodisíaco.", img:"img/Bolinha_Excitante_Goze___Sexy__716.webp", cat:"bolinhas", qty:0},
+    {id:63, title:"Bolinha Excitante Power Shock", price:20.00, cost:0, desc:"Intensifica o prazer com sensações eletrizantes.", img:"img/Bolinha_Excitante_Power_Shock__531.webp", cat:"bolinhas", qty:0},
+    {id:64, title:"Bomba Peniana Manual de Água", price:179.00, cost:0, desc:"Ajuda na ereção e no aumento temporário do pênis.", img:"img/Bomba_Peniana_Manual_De_Agua_I_664.webp", cat:"acessorios", qty:0},
+    {id:65, title:"Chicote com Franja 40cm", price:42.00, cost:0, desc:"Acessório para jogos de dominação com intensidade moderada.", img:"img/Chicote_Com_Franja_40cm_Sexy_F_1.webp", cat:"acessorios", qty:0},
+    {id:66, title:"Chicote com Tiras 50 Tons", price:39.00, cost:0, desc:"Inspirado em 50 Tons de Cinza, ideal para sadomasoquismo leve.", img:"img/Chicote_Com_Tiras_50_Tons_Bras_932.webp", cat:"acessorios", qty:0},
+    {id:67, title:"Chicote Reforçado com 6 Tiras", price:29.00, cost:0, desc:"Mais intensidade e resistência para fetiches avançados.", img:"img/Chicote_Reforcado_Com_6_Tiras__187.webp", cat:"acessorios", qty:0},
+    {id:68, title:"Energético Afrodisíaco Feminino", price:15.00, cost:0, desc:"Estimula a libido e aumenta a disposição sexual feminina.", img:"img/Energetico_Afrodisaco_Feminino_651.webp", cat:"bebidas", qty:0},
+    {id:69, title:"Estimulador Rosa de Ponto G", price:225.00, cost:0, desc:"Vibrador em formato de rosa que estimula o ponto G e clitóris.", img:"img/Estimulador_Rosa_De_Ponto_G_15_223.webp", cat:"vibradores", qty:0},
+    {id:70, title:"Kit Bondage Iniciante", price:98.00, cost:0, desc:"Kit completo com algemas, venda e chicote para iniciantes.", img:"img/Kit_Bondage_Iniciante_758.webp", cat:"acessorios", qty:0},
+    {id:71, title:"Lubrificante Siliconado Pro", price:55.00, cost:0, desc:"Lubrificante à base de silicone de longa duração.", img:"img/Lubrificante_Siliconado_Pro_225.webp", cat:"lubrificantes", qty:0},
+    {id:72, title:"Lubrificante Íntimo Beijável 30ml", price:29.00, cost:0, desc:"Perfeito para jogos orais com sabor agradável.", img:"img/Lubrificante_Beijavel_30ml_945.webp", cat:"lubrificantes", qty:0},
+    {id:73, title:"Masturbador Masculino Egg Vibro", price:45.00, cost:0, desc:"Masturbador prático e discreto com vibração.", img:"img/Masturbador_Masculino_Egg_Vibro_882.webp", cat:"acessorios", qty:0},
+    {id:74, title:"Massageador Ponto G Cônico", price:120.00, cost:0, desc:"Design ergonômico que alcança e estimula o ponto G com precisão.", img:"img/Massageador_Ponto_G_Conico_947.webp", cat:"vibradores", qty:0},
+    {id:75, title:"Plug Anal Com Vibro E Controle", price:130.00, cost:0, desc:"Plug anal em silicone com vibração e controle remoto para prazer intenso.", img:"img/Plug_Anal_Com_Vibro_E_Controle_722.webp", cat:"plugs", qty:0},
+    {id:76, title:"Prótese Flexível 20cm", price:95.00, cost:0, desc:"Prótese realística flexível para diferentes posições.", img:"img/Protese_Flexivel_20cm_112.webp", cat:"proteses", qty:0},
+    {id:77, title:"Prótese Realística 18cm", price:89.00, cost:0, desc:"Prótese anatômica realística com ventosa.", img:"img/Protese_Realistica_18cm_449.webp", cat:"proteses", qty:0},
+    {id:78, title:"Prótese Realística 20cm", price:98.00, cost:0, desc:"Versão maior para experiências intensas e realistas.", img:"img/Protese_Realistica_20cm_542.webp", cat:"proteses", qty:0},
+    {id:79, title:"Prótese Realística com Vibro 20cm", price:115.00, cost:0, desc:"Prótese com vibração interna para estímulo máximo.", img:"img/Protese_Realistica_Com_Vibro_20cm_477.webp", cat:"proteses", qty:0},
+    {id:80, title:"Rastreador Vibratório 15cm", price:60.00, cost:0, desc:"Mini vibrador portátil para estimulação precisa e discreta.", img:"img/Rastreador_Vibratorio_15cm_229.webp", cat:"vibradores", qty:0},
+    {id:81, title:"Roupão Sensual Preto", price:55.00, cost:0, desc:"Roupão leve e sensual para momentos íntimos.", img:"img/Roupao_Sensual_Preto_442.webp", cat:"lingerie", qty:0},
+    {id:82, title:"Roupão Sensual Vermelho", price:55.00, cost:0, desc:"Roupão em tecido leve para ocasiões românticas.", img:"img/Roupao_Sensual_Vermelho_345.webp", cat:"lingerie", qty:0},
+    {id:83, title:"Sugador Peniano Automático", price:350.00, cost:0, desc:"Aparelho automático para aumento peniano e estimulação.", img:"img/Sugador_Peniano_Automatico_874.webp", cat:"acessorios", qty:0},
+    {id:84, title:"Sugador Peniano Manual", price:220.00, cost:0, desc:"Aparelho manual que auxilia na ereção e penetração.", img:"img/Sugador_Peniano_Manual_329.webp", cat:"acessorios", qty:0},
+    {id:85, title:"Vibrador Recarregável Silicone", price:145.00, cost:0, desc:"Vibrador de silicone macio com várias funções de vibração.", img:"img/Vibrador_Recarregavel_Silicone_832.webp", cat:"vibradores", qty:0},
+    {id:86, title:"Vibrador Golfinho Silicone", price:120.00, cost:0, desc:"Vibrador em formato de golfinho para estímulo do ponto G e clitóris.", img:"img/Vibrador_Golfinho_Silicone_541.webp", cat:"vibradores", qty:0},
+    {id:87, title:"Vibrador Ponto G com Controle", price:160.00, cost:0, desc:"Estimulação precisa do ponto G com controle remoto.", img:"img/Vibrador_Ponto_G_Com_Controle_379.webp", cat:"vibradores", qty:0},
+    {id:88, title:"Vibrador Mini Bullet Recarregável", price:90.00, cost:0, desc:"Mini bullet discreto, silencioso e potente.", img:"img/Vibrador_Mini_Bullet_Recarregavel_840.webp", cat:"vibradores", qty:0}
+];
+
+    // -------------------------------
+    // Estado e persistência
+    // -------------------------------
+    let products = JSON.parse(localStorage.getItem('stock_products_v2')) || seedProducts.slice();
+    let transactions = JSON.parse(localStorage.getItem('stock_transactions_v2')) || [];
+    let expenses = JSON.parse(localStorage.getItem('stock_expenses_v2')) || [];
+
+    const grid = document.getElementById('grid');
+    const totalProductsEl = document.getElementById('totalProducts');
+    const totalQtyEl = document.getElementById('totalQty');
+    const totalCostEl = document.getElementById('totalCost');
+    const totalSaleEl = document.getElementById('totalSale');
+    const potentialProfitEl = document.getElementById('potentialProfit');
+    const realizedProfitEl = document.getElementById('realizedProfit');
+    const totalExpensesEl = document.getElementById('totalExpenses');
+    const netProfitEl = document.getElementById('netProfit');
+    const categoriesList = document.getElementById('categoriesList');
+    const txList = document.getElementById('txList');
+    const expList = document.getElementById('expList');
+
+    // -------------------------------
+    // Helpers
+    // -------------------------------
+    function formatPrice(v){return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+    function save(){ localStorage.setItem('stock_products_v2', JSON.stringify(products)); localStorage.setItem('stock_transactions_v2', JSON.stringify(transactions)); localStorage.setItem('stock_expenses_v2', JSON.stringify(expenses)); updateSummary(); }
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\'/g,"&#39;"); }
+    function showToast(msg){ alert(msg); }
+
+    // -------------------------------
+    // Render products
+    // -------------------------------
+    function renderProducts(list){
+      grid.innerHTML='';
+      list.forEach(p=>{
+        const el = document.createElement('div'); el.className='product';
+        const profitUnit = (Number(p.price)||0) - (Number(p.cost)||0);
+        el.innerHTML = `
+          <div class="p-img"><img src="${p.img || 'img/placeholder.jpg'}" alt="${escapeHtml(p.title)}"></div>
+          <div class="p-title">${escapeHtml(p.title)}</div>
+          <div class="p-desc">${escapeHtml(p.desc)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <div>
+              <div style="font-weight:700">Venda: R$ ${formatPrice(p.price)}</div>
+              <div style="font-size:13px;color:var(--muted)">Custo: R$ ${formatPrice(p.cost)} • Categoria: ${escapeHtml(p.cat)}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="qty-badge">Qtd: ${p.qty}</div>
+              <div style="font-weight:700;margin-top:6px">Total venda: R$ ${formatPrice(p.price * p.qty)}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button class="btn ghost" onclick="openAdjust(${p.id}, 'in')"><i class="fas fa-plus-circle"></i> Entrada</button>
+            <button class="btn ghost" onclick="openAdjust(${p.id}, 'out')"><i class="fas fa-minus-circle"></i> Saída</button>
+            <button class="btn ghost" onclick="openEdit(${p.id})"><i class="fas fa-edit"></i> Editar</button>
+            <button class="btn" style="background:#ff4d4d" onclick="removeProduct(${p.id})"><i class="fas fa-trash"></i></button>
+          </div>
+          <div style="margin-top:8px;font-size:13px;color:var(--muted)">Lucro unitário: R$ ${formatPrice(profitUnit)} • Lucro potencial: R$ ${formatPrice(profitUnit * p.qty)}</div>
+        `;
+        grid.appendChild(el);
+      });
+      updateSummary();
+    }
+
+    // -------------------------------
+    // Summary calculations
+    // -------------------------------
+    function updateSummary(){
+      totalProductsEl.textContent = products.length;
+      const totalQty = products.reduce((s,p)=>s + (Number(p.qty)||0),0);
+      totalQtyEl.textContent = totalQty;
+      const totalCost = products.reduce((s,p)=>s + (Number(p.qty)||0) * (Number(p.cost)||0),0);
+      const totalSale = products.reduce((s,p)=>s + (Number(p.qty)||0) * (Number(p.price)||0),0);
+      const potentialProfit = products.reduce((s,p)=>s + ((Number(p.price)||0) - (Number(p.cost)||0)) * (Number(p.qty)||0),0);
+      // realized profit from sales transactions
+      const realizedProfit = transactions.filter(t=>t.type==='out').reduce((s,t)=> s + ((Number(t.unitPrice)||0) - (Number(t.unitCost)||0)) * (Number(t.qty)||0), 0);
+      const totalExpenses = expenses.reduce((s,e)=>s + (Number(e.value)||0),0);
+      const netProfit = realizedProfit - totalExpenses;
+
+      totalCostEl.textContent = 'R$ ' + formatPrice(totalCost);
+      totalSaleEl.textContent = 'R$ ' + formatPrice(totalSale);
+      potentialProfitEl.textContent = 'R$ ' + formatPrice(potentialProfit);
+      realizedProfitEl.textContent = 'R$ ' + formatPrice(realizedProfit);
+      totalExpensesEl.textContent = 'R$ ' + formatPrice(totalExpenses);
+      netProfitEl.textContent = 'R$ ' + formatPrice(netProfit);
+
+      // transactions list
+      txList.innerHTML='';
+      const last = transactions.slice().reverse().slice(0,8);
+      if(last.length===0){ txList.innerHTML = '<div style="color:var(--muted)">Nenhuma movimentação</div>' }
+      else last.forEach(t=>{
+        const p = products.find(x=>x.id===t.productId) || {title:t.title || 'Produto excluído'};
+        const div = document.createElement('div');
+        div.style.padding='8px 0';
+        div.style.borderBottom='1px solid #f6f6f6';
+        const tipo = t.type === 'in' ? 'Entrada' : 'Saída';
+        div.innerHTML = `<div style="font-weight:600">${p.title}</div><div style="font-size:13px;color:var(--muted)">${tipo} • Qtd: ${t.qty} • ${new Date(t.date).toLocaleString('pt-BR')}</div>`;
+        txList.appendChild(div);
+      });
+
+      // expenses list
+      expList.innerHTML='';
+      if(expenses.length===0){ expList.innerHTML = '<div style="color:var(--muted)">Nenhuma despesa</div>' }
+      else expenses.slice().reverse().forEach(e=>{
+        const div = document.createElement('div'); div.style.padding='6px 0'; div.style.borderBottom='1px solid #f6f6f6';
+        div.innerHTML = `<div style="display:flex;justify-content:space-between"><div style="font-weight:600">${escapeHtml(e.desc)}</div><div>R$ ${formatPrice(e.value)}</div></div><div style="font-size:12px;color:var(--muted)">${new Date(e.date).toLocaleString('pt-BR')}</div>`;
+        expList.appendChild(div);
+      });
+
+      renderCategories();
+    }
+
+    // -------------------------------
+    // Categories
+    // -------------------------------
+    function renderCategories(){
+      const cats = Array.from(new Set(products.map(p=>p.cat))).sort();
+      categoriesList.innerHTML = '';
+      const allBtn = document.createElement('button'); allBtn.textContent='Todos'; allBtn.onclick = ()=>{ renderProducts(products); }
+      categoriesList.appendChild(allBtn);
+      cats.forEach(c=>{
+        const btn = document.createElement('button'); btn.textContent = c; btn.onclick = ()=>{ renderProducts(products.filter(p=>p.cat===c)); }
+        categoriesList.appendChild(btn);
+      });
+    }
+
+    // -------------------------------
+    // CRUD produtos
+    // -------------------------------
+    document.getElementById('btnNew').addEventListener('click', ()=>{ openNew() });
+
+    function openNew(){
+      modalCard.innerHTML = `
+        <h2>Novo produto</h2>
+        <form id="formNew">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            <input name="title" placeholder="Nome do produto" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <input name="cat" placeholder="Categoria" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <div style="display:flex;gap:8px">
+              <input name="cost" type="number" step="0.01" placeholder="Custo unitário (R$)" required style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee" />
+              <input name="price" type="number" step="0.01" placeholder="Preço venda (R$)" required style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee" />
+            </div>
+            <input name="qty" type="number" step="1" placeholder="Quantidade inicial" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <input name="img" placeholder="URL imagem (opcional)" style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <textarea name="desc" placeholder="Descrição" style="padding:8px;border-radius:8px;border:1px solid #eee"></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button>
+              <button class="btn">Salvar</button>
+            </div>
+          </div>
+        </form>`;
+      openModal();
+      document.getElementById('formNew').addEventListener('submit', function(e){
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const newProduct = { id: Date.now(), title: data.title, cat: data.cat, price: Number(data.price)||0, cost: Number(data.cost)||0, qty: Number(data.qty)||0, img: data.img || 'img/placeholder.jpg', desc: data.desc || '' };
+        products.push(newProduct); save(); renderProducts(products); closeModal(); showToast('Produto criado');
+      });
+    }
+
+    function openEdit(id){
+      const p = products.find(x=>x.id===id); if(!p) return showToast('Produto não encontrado');
+      modalCard.innerHTML = `
+        <h2>Editar produto</h2>
+        <form id="formEdit">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            <input name="title" value="${escapeHtml(p.title)}" placeholder="Nome do produto" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <input name="cat" value="${escapeHtml(p.cat)}" placeholder="Categoria" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <div style="display:flex;gap:8px">
+              <input name="cost" value="${p.cost}" type="number" step="0.01" placeholder="Custo unitário (R$)" required style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee" />
+              <input name="price" value="${p.price}" type="number" step="0.01" placeholder="Preço venda (R$)" required style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee" />
+            </div>
+            <input name="qty" value="${p.qty}" type="number" step="1" placeholder="Quantidade" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <input name="img" value="${escapeHtml(p.img || '')}" placeholder="URL imagem (opcional)" style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            <textarea name="desc" placeholder="Descrição" style="padding:8px;border-radius:8px;border:1px solid #eee">${escapeHtml(p.desc||'')}</textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button>
+              <button class="btn">Salvar</button>
+            </div>
+          </div>
+        </form>`;
+      openModal();
+      document.getElementById('formEdit').addEventListener('submit', function(e){
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        p.title = data.title; p.cat = data.cat; p.price = Number(data.price)||0; p.cost = Number(data.cost)||0; p.qty = Number(data.qty)||0; p.img = data.img || p.img; p.desc = data.desc || p.desc; save(); renderProducts(products); closeModal(); showToast('Produto atualizado');
+      });
+    }
+
+    function removeProduct(id){ if(!confirm('Excluir produto?')) return; products = products.filter(p=>p.id!==id); transactions = transactions.filter(t=>t.productId!==id); save(); renderProducts(products); showToast('Produto removido'); }
+
+    // -------------------------------
+    // Ajuste de estoque (entrada/saída) com custo e preço
+    // -------------------------------
+    function openAdjust(id, type){
+      const p = products.find(x=>x.id===id); if(!p) return showToast('Produto não encontrado');
+      modalCard.innerHTML = `
+        <h2>${type === 'in' ? 'Entrada' : 'Saída'} — ${escapeHtml(p.title)}</h2>
+        <form id="formAdj">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            <input name="qty" type="number" step="1" min="1" placeholder="Quantidade" required style="padding:8px;border-radius:8px;border:1px solid #eee" />
+            ${type === 'in' ? '<input name="unitCost" type="number" step="0.01" placeholder="Custo unitário (R$) desta entrada" required style="padding:8px;border-radius:8px;border:1px solid #eee" />' : '<input name="unitPrice" type="number" step="0.01" placeholder="Preço unitário de venda (R$)" value="'+p.price+'" required style="padding:8px;border-radius:8px;border:1px solid #eee" />'}
+            <textarea name="note" placeholder="Observação (opcional)" style="padding:8px;border-radius:8px;border:1px solid #eee"></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button>
+              <button class="btn">Confirmar</button>
+            </div>
+          </div>
+        </form>`;
+      openModal();
+      document.getElementById('formAdj').addEventListener('submit', function(e){
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const q = Number(data.qty)||0; if(q<=0) return showToast('Quantidade inválida');
+        if(type === 'in'){
+          const unitCost = Number(data.unitCost)||0;
+          // recalcular custo médio ponderado
+          const oldQty = Number(p.qty)||0; const oldCost = Number(p.cost)||0;
+          const newQty = oldQty + q;
+          const newCost = newQty === 0 ? 0 : ((oldQty * oldCost) + (q * unitCost)) / newQty;
+          p.cost = Number(newCost.toFixed(2));
+          p.qty = newQty;
+          transactions.push({ id: Date.now(), productId: p.id, type:'in', qty:q, date: new Date(), note: data.note||'', unitCost: unitCost, title:p.title });
+          showToast('Entrada registrada');
+        } else {
+          const unitPrice = Number(data.unitPrice)||0;
+          if((Number(p.qty)||0) < q) return showToast('Quantidade em estoque insuficiente');
+          p.qty = (Number(p.qty)||0) - q;
+          transactions.push({ id: Date.now(), productId: p.id, type:'out', qty:q, date: new Date(), note: data.note||'', unitPrice: unitPrice, unitCost: p.cost, title:p.title });
+          showToast('Saída (venda) registrada');
+        }
+        save(); renderProducts(products); closeModal();
+      });
+    }
+
+    // -------------------------------
+    // Expenses
+    // -------------------------------
+    document.getElementById('addExp').addEventListener('click', ()=>{
+      const desc = document.getElementById('expDesc').value.trim();
+      const val = Number(document.getElementById('expVal').value)||0;
+      if(!desc || val<=0) return showToast('Descrição e valor válidos são necessários');
+      expenses.push({ id: Date.now(), desc, value: val, date: new Date() });
+      document.getElementById('expDesc').value=''; document.getElementById('expVal').value=''; save(); showToast('Despesa adicionada');
+    });
+
+    // export expenses pdf
+    document.getElementById('exportExp').addEventListener('click', ()=>{
+      generateExpensesPDF();
+    });
+
+    // -------------------------------
+    // Reports (PDF)
+    // -------------------------------
+    document.getElementById('btnReportStock').addEventListener('click', generateStockPDF);
+    document.getElementById('btnReportTx').addEventListener('click', generateTxPDF);
+
+    async function generateStockPDF(){
+      const doc = new jspdf.jsPDF('p','pt','a4');
+      const title = `Relatório de Estoque - ${new Date().toLocaleString('pt-BR')}`;
+      doc.setFontSize(14); doc.text(title,40,40);
+      let y = 60; doc.setFontSize(10);
+      doc.text('ID',40,y); doc.text('Produto',80,y); doc.text('Cat',350,y); doc.text('Custo',420,y); doc.text('Venda',480,y); doc.text('Qtd',540,y); doc.text('Total C',580,y);
+      y += 16;
+      products.forEach(p=>{
+        doc.text(String(p.id),40,y);
+        doc.text(String(p.title).slice(0,35),80,y);
+        doc.text(String(p.cat),350,y);
+        doc.text('R$ '+formatPrice(p.cost),420,y);
+        doc.text('R$ '+formatPrice(p.price),480,y);
+        doc.text(String(p.qty),540,y);
+        doc.text('R$ '+formatPrice(p.cost * p.qty),580,y);
+        y += 12;
+        if(y > 740){ doc.addPage(); y = 40; }
+      });
+      doc.save(`estoque_${Date.now()}.pdf`);
+    }
+
+    async function generateTxPDF(){
+      const doc = new jspdf.jsPDF('p','pt','a4');
+      const title = `Movimentações - ${new Date().toLocaleString('pt-BR')}`;
+      doc.setFontSize(14); doc.text(title,40,40);
+      let y = 60; doc.setFontSize(11);
+      const list = transactions.slice().sort((a,b)=> new Date(b.date) - new Date(a.date));
+      if(list.length===0){ doc.text('Sem movimentações',40,y); doc.save(`movimentacoes_${Date.now()}.pdf`); return; }
+      list.forEach(t=>{
+        const line = `${new Date(t.date).toLocaleString('pt-BR')} — ${t.type === 'in' ? 'Entrada' : 'Saída'} — ${t.title} — Qtd: ${t.qty} — ${t.type==='in'?('Custo R$ '+formatPrice(t.unitCost||0)):('Preço R$ '+formatPrice(t.unitPrice||0))}`;
+        doc.text(String(line).slice(0,120),40,y);
+        y += 12;
+        if(y > 740){ doc.addPage(); y = 40; }
+      });
+      doc.save(`movimentacoes_${Date.now()}.pdf`);
+    }
+
+    async function generateExpensesPDF(){
+      const doc = new jspdf.jsPDF('p','pt','a4');
+      const title = `Despesas - ${new Date().toLocaleString('pt-BR')}`;
+      doc.setFontSize(14); doc.text(title,40,40);
+      let y = 60; doc.setFontSize(11);
+      if(expenses.length===0){ doc.text('Sem despesas',40,y); doc.save(`despesas_${Date.now()}.pdf`); return; }
+      expenses.slice().sort((a,b)=> new Date(b.date) - new Date(a.date)).forEach(e=>{
+        doc.text(`${new Date(e.date).toLocaleDateString('pt-BR')} — ${e.desc} — R$ ${formatPrice(e.value)}`,40,y);
+        y += 12; if(y>740){doc.addPage(); y=40}
+      });
+      doc.save(`despesas_${Date.now()}.pdf`);
+    }
+
+    // -------------------------------
+    // UI helpers
+    // -------------------------------
+    const modal = document.getElementById('modal');
+    const modalCard = document.getElementById('modalCard');
+    function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false') }
+    function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true') }
+    modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); })
+
+    // -------------------------------
+    // Search & sort
+    // -------------------------------
+    document.getElementById('search').addEventListener('input', e=>{ const term = e.target.value.toLowerCase(); renderProducts(products.filter(p=> (p.title+p.desc+p.cat).toLowerCase().includes(term))); });
+    document.getElementById('sort').addEventListener('change', e=>{ let sorted = [...products]; if(e.target.value === 'price-asc') sorted.sort((a,b)=>a.price-b.price); if(e.target.value === 'price-desc') sorted.sort((a,b)=>b.price-a.price); if(e.target.value === 'cost-asc') sorted.sort((a,b)=>a.cost-b.cost); if(e.target.value === 'cost-desc') sorted.sort((a,b)=>b.cost-a.cost); if(e.target.value === 'qty-asc') sorted.sort((a,b)=>a.qty-b.qty); if(e.target.value === 'qty-desc') sorted.sort((a,b)=>b.qty-a.qty); renderProducts(sorted); });
+
+    // expose some functions for inline buttons
+    window.openAdjust = openAdjust; window.openEdit = openEdit; window.removeProduct = removeProduct;
+
+    // Init
+    renderProducts(products);
+    updateSummary();
+  </script>
+</body>
+</html>

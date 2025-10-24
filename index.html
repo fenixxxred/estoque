@@ -20,6 +20,26 @@
     .actions{display:flex;gap:10px;align-items:center}
     .btn{background:var(--accent);color:white;padding:9px 12px;border-radius:10px;border:0;cursor:pointer}
     .btn.ghost{background:transparent;border:1px solid var(--accent);color:var(--accent);font-size: 9px;}
+    .btn-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #b30000;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: 0.2s;
+      border: none;
+    }
+    .btn-nav:hover {
+      background: #d60000;
+      transform: scale(1.02);
+    }
+    .btn-nav i {
+      font-size: 15px;
+    }
     main{display:flex;gap:20px;padding:18px;max-width:1200px;margin:18px auto}
     .sidebar{width:320px}
     .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,0.04)}
@@ -57,6 +77,7 @@
     <div class="search"><input id="search" placeholder="Buscar por nome, descrição ou categoria" /></div>
 
     <div class="actions">
+      <a href="vendas.html" class="btn-nav"><i class="fas fa-cash-register"></i> Vendas</a>
       <button id="btnNew" class="btn"><i class="fas fa-plus"></i> Novo produto</button>
       <button id="btnReportStock" class="btn ghost"><i class="fas fa-file-pdf"></i> PDF Estoque</button>
       <button id="btnReportTx" class="btn ghost"><i class="fas fa-file-export"></i> PDF Movimentações</button>
@@ -584,3 +605,4 @@
   </script>
 </body>
 </html>
+

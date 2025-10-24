@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vendas — Red Room</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{--accent:#b30000;--muted:#6b7080;}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Roboto,Arial;margin:0;background:#ffb8b8;color:#111}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#fff;border-bottom:2px solid #ffecec;position:sticky;top:0;z-index:10}
+    .logo{width:48px;height:48px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    h1{font-size:18px;color:var(--accent);margin:0}
+    main{max-width:1200px;margin:20px auto;padding:12px}
+    .row{display:flex;gap:12px;align-items:flex-start}
+    .col{flex:1}
+    .card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.05);padding:16px;margin-bottom:16px}
+    input,select,button,textarea{padding:10px;border-radius:8px;border:1px solid #eee;font-size:14px}
+    button{cursor:pointer;background:var(--accent);color:white;border:0;font-weight:600}
+    button.ghost{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px;border-bottom:1px solid #f3f3f3;text-align:left}
+    .small-muted{font-size:13px;color:var(--muted)}
+    .footer{text-align:center;color:var(--muted);margin-top:20px;font-size:13px}
+    @media (max-width:980px){ .row{flex-direction:column} }
+  </style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">RR</div>
+    <div>
+      <h1>Vendas — Red Room</h1>
+      <div class="small-muted">Telefone: 64 99328-6584 • fenexxxredroom@gmail.com</div>
+    </div>
+  </div>
+  <a href="index.html" class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:8px;border:1px solid var(--accent);color:var(--accent)">
+    <i class="fas fa-warehouse"></i> Estoque
+  </a>
+</header>
+
+<main>
+  <div class="row">
+    <div class="col card">
+      <h3>Nova Venda</h3>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input id="customerName" placeholder="Nome do cliente" style="flex:2" />
+        <input id="customerPhone" placeholder="Telefone do cliente" style="width:200px" />
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input id="customerAddress" placeholder="Endereço (opcional)" style="flex:1" />
+        <select id="paymentMethod" style="width:220px">
+          <option>Dinheiro</option><option>Cartão</option><option>PIX</option><option>Transferência</option>
+        </select>
+      </div>
+      <hr>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="productSearch" placeholder="Buscar produto (nome/categoria)" style="flex:2"/>
+        <input id="prodQty" type="number" min="1" placeholder="Qtd" style="width:90px"/>
+        <input id="prodDiscount" type="number" min="0" step="0.01" placeholder="Desc. R$" style="width:110px"/>
+        <button id="addToCart"><i class="fas fa-cart-plus"></i> Adicionar</button>
+      </div>
+      <div id="searchResults" class="small-muted" style="margin-top:8px"></div>
+
+      <table id="cartTable" style="margin-top:12px">
+        <thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Desc.</th><th>Subtotal</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div class="small-muted">Itens: <span id="cartCount">0</span></div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:700">Total: R$ <span id="cartTotal">0,00</span></div>
+          <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+            <button id="clearCart" class="ghost">Limpar</button>
+            <button id="completeSale"><i class="fas fa-check"></i> Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col card" style="max-width:520px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3>Histórico</h3>
+        <input id="searchSales" placeholder="Buscar cliente" style="padding:8px;border-radius:8px;border:1px solid #eee" />
+      </div>
+      <div style="max-height:520px;overflow:auto;margin-top:10px">
+        <table id="salesTable"><thead><tr><th>Data</th><th>Cliente</th><th>Total</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;z-index:60">
+    <div style="background:#fff;border-radius:12px;padding:16px;max-width:760px;width:94%;max-height:90vh;overflow:auto" id="modalCard"></div>
+  </div>
+
+  <div class="footer">© Red Room • 64 99328-6584 • fenexxxredroom@gmail.com</div>
+</main>
+
+<script>
+const { jsPDF } = window.jspdf;
+let products = JSON.parse(localStorage.getItem('stock_products_v2'))||[];
+let transactions = JSON.parse(localStorage.getItem('stock_transactions_v2'))||[];
+let sales = JSON.parse(localStorage.getItem('sales_records_v1'))||[];
+const productSearch=document.getElementById('productSearch'),searchResults=document.getElementById('searchResults'),
+addToCartBtn=document.getElementById('addToCart'),cartTable=document.querySelector('#cartTable tbody'),
+cartCount=document.getElementById('cartCount'),cartTotal=document.getElementById('cartTotal'),
+clearCart=document.getElementById('clearCart'),completeSale=document.getElementById('completeSale'),
+salesTable=document.querySelector('#salesTable tbody'),searchSales=document.getElementById('searchSales');
+const cName=document.getElementById('customerName'),cPhone=document.getElementById('customerPhone'),
+cAddr=document.getElementById('customerAddress'),pay=document.getElementById('paymentMethod');
+let cart=[];
+function fmt(v){return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+
+// busca produto
+productSearch.addEventListener('input',e=>{
+  const t=e.target.value.toLowerCase().trim();
+  if(t.length<1){searchResults.innerHTML='';return;}
+  const f=products.filter(p=>(p.title+p.desc+p.cat).toLowerCase().includes(t));
+  if(!f.length){searchResults.innerHTML='<div class=small-muted>Nenhum produto</div>';return;}
+  searchResults.innerHTML=f.slice(0,8).map(p=>`<div data-id=${p.id} style="padding:6px;cursor:pointer;border-bottom:1px solid #f5f5f5">${p.title} – R$ ${fmt(p.price)} (Qtd:${p.qty})</div>`).join('');
+  searchResults.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{
+    productSearch.dataset.sel=el.dataset.id;
+    productSearch.value=el.textContent.split(' –')[0];
+    searchResults.innerHTML='';
+  });
+});
+
+// adicionar
+addToCartBtn.onclick=()=>{
+  const id=Number(productSearch.dataset.sel);
+  if(!id)return alert('Selecione um produto.');
+  const p=products.find(x=>x.id===id);if(!p)return alert('Produto não encontrado.');
+  const q=Math.floor(Number(document.getElementById('prodQty').value)||0);
+  const d=Number(document.getElementById('prodDiscount').value)||0;
+  if(q<=0)return alert('Qtd inválida.');
+  if(p.qty<q)return alert('Estoque insuficiente.');
+  const ex=cart.find(i=>i.id===id);
+  if(ex){ex.qty+=q;ex.discount+=(d||0);}else cart.push({id,title:p.title,price:p.price,cost:p.cost,qty:q,discount:d});
+  productSearch.value='';delete productSearch.dataset.sel;document.getElementById('prodQty').value='';document.getElementById('prodDiscount').value='';
+  renderCart();
+};
+function renderCart(){
+  cartTable.innerHTML='';let tot=0;
+  cart.forEach(i=>{
+    const sub=i.price*i.qty-(i.discount||0);tot+=sub;
+    cartTable.insertAdjacentHTML('beforeend',`<tr><td>${i.title}</td><td>${i.qty}</td><td>R$ ${fmt(i.price)}</td><td>R$ ${fmt(i.discount||0)}</td><td>R$ ${fmt(sub)}</td><td><button class=ghost onclick="removeItem(${i.id})"><i class='fas fa-trash'></i></button></td></tr>`);
+  });
+  cartCount.textContent=cart.length;cartTotal.textContent=fmt(tot);
+}
+window.removeItem=id=>{cart=cart.filter(i=>i.id!==id);renderCart();}
+clearCart.onclick=()=>{if(confirm('Limpar carrinho?')){cart=[];renderCart();}}
+
+// finalizar
+completeSale.onclick=()=>{
+  if(!cart.length)return alert('Carrinho vazio.');
+  const name=cName.value||'Consumidor',phone=cPhone.value||'',addr=cAddr.value||'',pm=pay.value;
+  for(const i of cart){const p=products.find(x=>x.id===i.id);if(!p||p.qty<i.qty)return alert('Estoque insuficiente.');}
+  const id=Date.now(),dt=new Date();let total=0;
+  const items=cart.map(i=>{
+    const p=products.find(x=>x.id===i.id);p.qty-=i.qty;
+    const sub=i.price*i.qty-(i.discount||0);total+=sub;
+    transactions.push({id:Date.now()+Math.random(),productId:p.id,type:'out',qty:i.qty,date:dt,unitPrice:i.price,unitCost:p.cost,title:p.title});
+    return {...i,subtotal:sub};
+  });
+  const sale={saleId:id,date:dt,customer:{name,phone,address:addr},paymentMethod:pm,items,total:Number(total.toFixed(2))};
+  sales.push(sale);
+  localStorage.setItem('stock_products_v2',JSON.stringify(products));
+  localStorage.setItem('stock_transactions_v2',JSON.stringify(transactions));
+  localStorage.setItem('sales_records_v1',JSON.stringify(sales));
+  cart=[];renderCart();renderSales();
+  generatePdf(sale);
+  alert('Venda registrada!');
+};
+
+// histórico
+function renderSales(f=''){
+  salesTable.innerHTML='';
+  sales.slice().reverse().filter(s=>(!f)||s.customer.name.toLowerCase().includes(f.toLowerCase()))
+  .forEach(s=>{
+    salesTable.insertAdjacentHTML('beforeend',`<tr><td>${new Date(s.date).toLocaleString('pt-BR')}</td><td>${s.customer.name}</td><td>R$ ${fmt(s.total)}</td><td><button class=ghost onclick="view(${s.saleId})"><i class='fas fa-eye'></i></button></td></tr>`);
+  });
+}
+searchSales.oninput=e=>renderSales(e.target.value);
+renderSales();
+
+// ver venda
+window.view=id=>{
+  const s=sales.find(x=>x.saleId==id);if(!s)return;
+  const m=document.getElementById('modal'),c=document.getElementById('modalCard');
+  let html=`<h3>Venda — ${new Date(s.date).toLocaleString('pt-BR')}</h3><div class=small-muted>Cliente: ${s.customer.name}<br>Tel: ${s.customer.phone}<br>End: ${s.customer.address}<br>Pagamento: ${s.paymentMethod}</div><table style="margin-top:12px"><thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>`;
+  s.items.forEach(i=>{html+=`<tr><td>${i.title}</td><td>${i.qty}</td><td>R$ ${fmt(i.price)}</td><td>R$ ${fmt(i.subtotal)}</td></tr>`;});
+  html+=`</tbody></table><div style="text-align:right;font-weight:700;margin-top:8px">Total: R$ ${fmt(s.total)}</div><div style="margin-top:12px;text-align:right"><button class=ghost onclick="pdf(${s.saleId})">Gerar PDF</button> <button class=ghost onclick="closeM()">Fechar</button></div>`;
+  c.innerHTML=html;m.style.display='flex';
+};
+window.closeM=()=>document.getElementById('modal').style.display='none';
+
+// pdf
+function generatePdf(s){
+  const d=new jsPDF();
+  d.setFontSize(14);
+  d.text('Red Room',20,20);
+  d.setFontSize(10);
+  d.text('Telefone: 64 99328-6584',20,26);
+  d.text('E-mail: fenexxxredroom@gmail.com',20,32);
+  d.setFontSize(11);
+  d.text('Comprovante de Venda',20,44);
+  d.setFontSize(10);
+  d.text('Data: '+new Date(s.date).toLocaleString('pt-BR'),20,54);
+  d.text('Cliente: '+(s.customer.name||''),20,64);
+  if(s.customer.phone)d.text('Telefone: '+s.customer.phone,20,70);
+  if(s.customer.address)d.text('Endereço: '+s.customer.address,20,76);
+  d.text('Pagamento: '+s.paymentMethod,20,82);
+  let y=96;d.text('Itens:',20,y);y+=8;
+  s.items.forEach(i=>{
+    d.text(`${i.title} — ${i.qty} x R$ ${fmt(i.price)} = R$ ${fmt(i.subtotal)}`,20,y);
+    y+=8;if(y>270){d.addPage();y=20;}
+  });
+  d.text('------------------------------------',20,y+6);
+  d.setFontSize(12);
+  d.text('TOTAL: R$ '+fmt(s.total),20,y+18);
+  d.save('venda_'+s.saleId+'.pdf');
+}
+window.pdf=id=>{const s=sales.find(x=>x.saleId==id);if(s)generatePdf(s);}
+</script>
+</body>
+</html>

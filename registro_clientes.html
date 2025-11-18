@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro de Clientes — Red Room</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    :root { --accent:#b30000; --muted:#6b7080; }
+    * { box-sizing:border-box; }
+    body {
+      font-family: Inter, system-ui, Arial;
+      margin: 0;
+      background: #ffe3e3;
+      color: #111;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: #fff;
+      border-bottom: 2px solid #ffd1d1;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    h1 { margin:0; font-size:20px; color:var(--accent); }
+    main { max-width:1200px; margin:20px auto; padding:12px; }
+
+    .card {
+      background:#fff;
+      border-radius:12px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+      padding:16px;
+      margin-bottom:16px;
+    }
+
+    input, button {
+      padding:10px;
+      border-radius:8px;
+      border:1px solid #e8e8e8;
+      font-size:15px;
+    }
+    button {
+      cursor:pointer;
+      background:var(--accent);
+      color:#fff;
+      border:0;
+      font-weight:600;
+    }
+    button.ghost {
+      background:transparent;
+      border:1px solid var(--accent);
+      color:var(--accent);
+    }
+
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:9px; border-bottom:1px solid #f1f1f1; text-align:left; }
+    .small-muted { color:var(--muted); font-size:14px; }
+
+    @media (max-width:900px){
+      table { font-size:14px; }
+    }
+
+    /* Modal */
+    #modal {
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.45);
+      align-items:center;
+      justify-content:center;
+      z-index:50;
+    }
+    #modalCard {
+      background:#fff;
+      padding:20px;
+      border-radius:12px;
+      max-width:450px;
+      width:90%;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div class="logo">RR</div>
+    <div>
+      <h1>Registro de Clientes</h1>
+      <div class="small-muted">Histórico geral de todas as compras</div>
+    </div>
+  </div>
+
+  <a href="vendas.html" class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:8px;">
+    <i class="fa fa-arrow-left"></i> Voltar
+  </a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h3>Buscar Cliente</h3>
+    <input id="searchClient" placeholder="Digite o nome do cliente..." style="width:100%">
+  </div>
+
+  <div id="clientList"></div>
+
+</main>
+
+<!-- MODAL -->
+<div id="modal">
+  <div id="modalCard"></div>
+</div>
+
+<script>
+let sales = JSON.parse(localStorage.getItem('sales_records_v1')) || [];
+
+// Agrupar vendas por cliente
+function getClients() {
+  const map = {};
+
+  sales.forEach(s => {
+    const name = s.customer.name || "Consumidor";
+    if (!map[name]) map[name] = { total:0, paid:0, pending:0, sales:[] };
+
+    map[name].total += s.total;
+    map[name].sales.push(s);
+  });
+
+  // salvar sempre valores financeiras
+  for (let c in map) {
+    const payments = JSON.parse(localStorage.getItem('payments_'+c)) || [];
+    const sumPaid = payments.reduce((a,b)=>a+b.amount,0);
+    map[c].paid = sumPaid;
+    map[c].pending = map[c].total - sumPaid;
+  }
+
+  return map;
+}
+
+function renderClients(filter="") {
+  const container = document.getElementById("clientList");
+  container.innerHTML = "";
+
+  const clients = getClients();
+  const names = Object.keys(clients).filter(n => n.toLowerCase().includes(filter.toLowerCase()));
+
+  names.forEach(name => {
+    const c = clients[name];
+
+    container.insertAdjacentHTML("beforeend", `
+      <div class="card">
+        <h3>${name}</h3>
+        <div class="small-muted">
+          Total comprado: R$ ${c.total.toFixed(2)}<br>
+          Pago: <span style="color:green">R$ ${c.paid.toFixed(2)}</span><br>
+          Falta pagar: <span style="color:${c.pending>0?'red':'green'}">R$ ${c.pending.toFixed(2)}</span>
+        </div>
+
+        <button class="ghost" style="margin-top:10px" onclick="openClient('${name}')">
+          <i class="fa fa-eye"></i> Ver detalhes
+        </button>
+      </div>
+    `);
+  });
+}
+
+document.getElementById("searchClient").addEventListener("input", e => {
+  renderClients(e.target.value);
+});
+
+renderClients();
+
+// ------------------------------
+// MODAL – Detalhes do Cliente
+// ------------------------------
+function openClient(name) {
+  const modal = document.getElementById("modal");
+  const card = document.getElementById("modalCard");
+
+  const client = getClients()[name];
+
+  let rows = "";
+  client.sales.forEach(s => {
+    rows += `
+      <tr>
+        <td>${new Date(s.date).toLocaleString('pt-BR')}</td>
+        <td>R$ ${s.total.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  card.innerHTML = `
+    <h3>${name}</h3>
+    <p class="small-muted">Histórico completo</p>
+
+    <table>
+      <thead><tr><th>Data</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <hr>
+
+    <p><b>Total comprado:</b> R$ ${client.total.toFixed(2)}</p>
+    <p><b>Pago:</b> R$ ${client.paid.toFixed(2)}</p>
+    <p><b>Pendente:</b> R$ ${client.pending.toFixed(2)}</p>
+
+    <button onclick="addPayment('${name}')" style="width:100%;margin-top:10px">
+      Registrar pagamento
+    </button>
+
+    <button class="ghost" style="margin-top:10px;width:100%" onclick="closeModal()">Fechar</button>
+  `;
+
+  modal.style.display = "flex";
+}
+
+function closeModal(){
+  document.getElementById("modal").style.display = "none";
+}
+
+// Registrar pagamento
+function addPayment(name){
+  const amount = Number(prompt("Valor pago:"));
+  if(!amount || amount <= 0) return;
+
+  const key = "payments_" + name;
+  const list = JSON.parse(localStorage.getItem(key)) || [];
+
+  list.push({ amount, date: Date.now() });
+
+  localStorage.setItem(key, JSON.stringify(list));
+
+  alert("Pagamento registrado!");
+  closeModal();
+  renderClients();
+}
+</script>
+
+</body>
+</html>
